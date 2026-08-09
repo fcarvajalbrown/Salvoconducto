@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Salvoconducto — a citizen's pass for AI agents</title>
+<meta name="description" content="Give an AI agent the fewest fields it needs, for one purpose and a set time, with an honest account of what it already saw." />
+</head>
+<body>
+<style>
+:root {
+  --bg: #e9e7dd;
+  --panel: #f5f3ec;
+  --ink: #1a2830;
+  --muted: #5c6769;
+  --line: #d3cfc0;
+  --edge: #beb9a6;
+  --teal: #0e6b60;
+  --stampgreen: #2f7d46;
+  --stampred: #b0201f;
+  --amber: #8a5a00;
+  --allow: #2f7d46;
+  --deny: #b0201f;
+  --warn: #8a5a00;
+  --hi: #b0201f;
+  --med: #8a5a00;
+  --lo: #5c6769;
+  --mono: ui-monospace, 'Cascadia Code', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #14171b;
+    --panel: #1c2026;
+    --ink: #e9e4d5;
+    --muted: #9aa1a0;
+    --line: #2b323a;
+    --edge: #3a414a;
+    --teal: #43b9a6;
+    --stampgreen: #46b96a;
+    --stampred: #f0716f;
+    --amber: #e3b341;
+    --allow: #46b96a;
+    --deny: #f0716f;
+    --warn: #e3b341;
+    --hi: #f0716f;
+    --med: #e3b341;
+    --lo: #9aa1a0;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #14171b;
+  --panel: #1c2026;
+  --ink: #e9e4d5;
+  --muted: #9aa1a0;
+  --line: #2b323a;
+  --edge: #3a414a;
+  --teal: #43b9a6;
+  --stampgreen: #46b96a;
+  --stampred: #f0716f;
+  --amber: #e3b341;
+  --allow: #46b96a;
+  --deny: #f0716f;
+  --warn: #e3b341;
+  --hi: #f0716f;
+  --med: #e3b341;
+  --lo: #9aa1a0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+#app { max-width: 1120px; margin: 0 auto; padding: 24px 20px 72px; }
+
+.doc-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+  border: 1px solid var(--edge); border-radius: 12px; padding: 18px 20px;
+  background:
+    repeating-linear-gradient(60deg, transparent 0 7px, color-mix(in srgb, var(--teal) 8%, transparent) 7px 8px),
+    repeating-linear-gradient(-60deg, transparent 0 7px, color-mix(in srgb, var(--teal) 6%, transparent) 7px 8px),
+    var(--panel);
+}
+h1 { font: 800 26px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; margin: 0; color: var(--ink); }
+.serial { font: 600 12px var(--mono); letter-spacing: 0.14em; color: var(--teal); margin-top: 8px; }
+.docclass { font: 600 11px var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.tagline { color: var(--ink); margin: 10px 0 0; font: 15px/1.45 var(--sans); max-width: 52ch; text-wrap: balance; }
+.protonote { color: var(--muted); margin: 9px 0 0; font: 12px/1.45 var(--mono); letter-spacing: 0.02em; max-width: 60ch; }
+.note { color: var(--muted); margin: -4px 0 12px; font: 12px/1.4 var(--sans); }
+.lognote { color: var(--muted); margin: 7px 0 0; font: 11px/1.4 var(--mono); letter-spacing: 0.03em; }
+
+.grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+.col { display: flex; flex-direction: column; gap: 16px; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.panel.pass { border-color: var(--edge); }
+.panel > h2 { font: 700 11px var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+
+.agentline { margin: 0 0 10px; font: 14px var(--sans); }
+.agentline strong { font: 700 13px var(--mono); letter-spacing: 0.04em; }
+
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 300px; overflow: auto; }
+@media (max-width: 520px) { .fields { grid-template-columns: 1fr; } }
+.field { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.field .lab { font: 12px/1.3 var(--sans); }
+.field .k { color: var(--muted); font: 11px var(--mono); letter-spacing: 0.03em; }
+.field.granted { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.dot.high { background: var(--hi); } .dot.medium { background: var(--med); } .dot.low { background: var(--lo); }
+
+.meter { height: 8px; border-radius: 5px; background: var(--line); overflow: hidden; margin: 10px 0 4px; }
+.meter > span { display: block; height: 100%; background: var(--teal); }
+@media (prefers-reduced-motion: no-preference) { .meter > span { transition: width 0.25s ease; } }
+.meterlabel { font: 12px var(--mono); letter-spacing: 0.04em; color: var(--muted); margin: 0 0 4px; }
+
+.reqfield { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.reqfield label { flex: 1; font: 13px var(--sans); }
+.reqfield .k { color: var(--muted); font: 11px var(--mono); letter-spacing: 0.06em; }
+
+.stamps { display: flex; gap: 14px; flex-wrap: wrap; min-height: 6px; margin: 14px 0 4px; }
+.stamp {
+  font: 800 14px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 8px 13px; border: 3px double var(--stampgreen); color: var(--stampgreen);
+  border-radius: 7px; rotate: -9deg; opacity: 0.9; align-self: flex-start;
+}
+.stamp.revoked, .stamp.denied { color: var(--stampred); border-color: var(--stampred); rotate: 6deg; }
+@media (prefers-reduced-motion: no-preference) {
+  .stamp { animation: stampin 0.28s cubic-bezier(0.2, 0.7, 0.3, 1.5) both; }
+}
+@keyframes stampin { from { opacity: 0; scale: 1.8; } to { opacity: 0.9; scale: 1; } }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+button { font: 600 14px var(--sans); cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 9px 14px; }
+button.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+button.danger { background: var(--stampred); border-color: var(--stampred); color: #fff; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+.feed { max-height: 300px; overflow: auto; font: 12.5px/1.5 var(--mono); }
+.receipt { padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); border-left-width: 3px; margin-bottom: 6px; }
+.receipt.allow { border-left-color: var(--allow); }
+.receipt.deny { border-left-color: var(--deny); }
+.receipt .seq { color: var(--muted); }
+.receipt .val { color: var(--muted); margin-top: 2px; }
+.badge { font: 11px var(--mono); letter-spacing: 0.06em; padding: 1px 7px; border-radius: 20px; border: 1px solid var(--line); }
+.badge.allow { color: var(--allow); } .badge.deny { color: var(--deny); }
+.chain { font: 12px var(--mono); letter-spacing: 0.04em; color: var(--muted); margin-top: 10px; }
+
+.prove { margin-top: 14px; padding: 13px; border: 1px dashed var(--line); border-radius: 10px; }
+.prove.dead { border-color: var(--deny); border-style: solid; }
+.prove strong { font: 700 11px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+.prove .verdict { font: 700 13px var(--mono); color: var(--deny); margin-top: 8px; }
+.honesty { margin-top: 14px; }
+.honesty strong { font: 700 11px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+.honesty div { font: 13px/1.5 var(--sans); }
+
+.mrz { margin-top: 14px; font: 12px/1.7 var(--mono); letter-spacing: 0.14em; background: var(--ink); color: var(--panel); padding: 10px 12px; border-radius: 8px; overflow-x: auto; white-space: pre; }
+
+</style>
+<div id="app"></div>
+<script>
+(async () => {
+const enc = new TextEncoder();
+
+function toHex(bytes) {
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
+}
+
+function hexToBytes(hex) {
+  const a = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < a.length; i++) a[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return a;
+}
+
+async function hmacSha256(keyBytes, msg) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
+  return new Uint8Array(sig);
+}
+
+async function sha256hex(msg) {
+  const h = await crypto.subtle.digest('SHA-256', enc.encode(msg));
+  return toHex(new Uint8Array(h));
+}
+
+function randomHex(n) {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return toHex(b);
+}
+
+function stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+
+
+const FIELDS = [
+  { key: 'national_id', topic: 'Identity', sensitivity: 'high', label: 'National ID', value: '12.345.678-9' },
+  { key: 'full_name', topic: 'Identity', sensitivity: 'medium', label: 'Full name', value: 'Ana Rojas Pérez' },
+  { key: 'date_of_birth', topic: 'Identity', sensitivity: 'medium', label: 'Date of birth', value: '1979-04-11' },
+  { key: 'home_address', topic: 'Identity', sensitivity: 'high', label: 'Home address', value: 'Av. Grecia 1234, Ñuñoa' },
+  { key: 'phone', topic: 'Contacts', sensitivity: 'medium', label: 'Phone', value: '+56 9 8765 4321' },
+  { key: 'email', topic: 'Contacts', sensitivity: 'low', label: 'Email', value: 'ana.rojas@example.cl' },
+  { key: 'emergency_contact', topic: 'Contacts', sensitivity: 'medium', label: 'Emergency contact', value: 'M. Rojas +56 9 5555 1212' },
+  { key: 'monthly_income', topic: 'Income', sensitivity: 'high', label: 'Monthly income', value: 'CLP 520.000' },
+  { key: 'employer', topic: 'Income', sensitivity: 'medium', label: 'Employer', value: 'Independent' },
+  { key: 'tax_id', topic: 'Income', sensitivity: 'high', label: 'Tax ID', value: '12.345.678-9' },
+  { key: 'bank_account', topic: 'Payment', sensitivity: 'high', label: 'Bank account', value: 'Ch** **** **** 4417' },
+  { key: 'card_last4', topic: 'Payment', sensitivity: 'medium', label: 'Card (last 4)', value: '4417' },
+  { key: 'payment_history', topic: 'Payment', sensitivity: 'high', label: 'Payment history', value: '36 months of transactions' },
+  { key: 'diagnosis_code', topic: 'Health', sensitivity: 'high', label: 'Diagnosis code', value: 'ICD-10 G35' },
+  { key: 'full_medical_history', topic: 'Health', sensitivity: 'high', label: 'Full medical history', value: '14 years of records' },
+  { key: 'medications', topic: 'Health', sensitivity: 'high', label: 'Medications', value: 'ocrelizumab' },
+  { key: 'blood_type', topic: 'Health', sensitivity: 'medium', label: 'Blood type', value: 'O+' },
+  { key: 'disability_percent', topic: 'Health', sensitivity: 'high', label: 'Disability rating', value: '45%' },
+  { key: 'calendar_today', topic: 'Schedule', sensitivity: 'low', label: "Today's calendar", value: '2 events' },
+  { key: 'location', topic: 'Schedule', sensitivity: 'medium', label: 'Location', value: 'Santiago, CL' },
+];
+
+function createPassport() {
+  const map = new Map(FIELDS.map((f) => [f.key, f]));
+  return {
+    list() { return FIELDS.map((f) => ({ ...f })); },
+    get(key) { return map.get(key)?.value; },
+    meta(key) { const f = map.get(key); return f ? { ...f } : undefined; },
+    count() { return FIELDS.length; },
+  };
+}
+
+
+
+function identifier(t) {
+  return stableStringify({ id: t.id, agent: t.agent, fields: t.fields, purpose: t.purpose, expiresAt: t.expiresAt });
+}
+
+async function mint(secretHex, { id, agent, fields, purpose, expiresAt }) {
+  const token = { id, agent, fields: [...fields], purpose, expiresAt, caveats: [] };
+  const sig = await hmacSha256(hexToBytes(secretHex), identifier(token));
+  token.sig = toHex(sig);
+  return token;
+}
+
+async function attenuate(token, caveat) {
+  const next = { fields: caveat.fields ? [...caveat.fields] : undefined, expiresAt: caveat.expiresAt };
+  const sig = await hmacSha256(hexToBytes(token.sig), stableStringify(next));
+  return { ...token, caveats: [...token.caveats, next], sig: toHex(sig) };
+}
+
+async function verify(secretHex, token) {
+  let sig = await hmacSha256(hexToBytes(secretHex), identifier(token));
+  for (const c of token.caveats) {
+    sig = await hmacSha256(sig, stableStringify({ fields: c.fields, expiresAt: c.expiresAt }));
+  }
+  const ok = toHex(sig) === token.sig;
+
+  let fields = new Set(token.fields);
+  let expiresAt = token.expiresAt;
+  for (const c of token.caveats) {
+    if (c.fields) fields = new Set([...fields].filter((f) => c.fields.includes(f)));
+    if (typeof c.expiresAt === 'number') expiresAt = Math.min(expiresAt, c.expiresAt);
+  }
+  return { ok, fields: [...fields], purpose: token.purpose, expiresAt };
+}
+
+
+
+function createAuthServer(secretHex) {
+  const registry = new Map();
+  return {
+    register(token) { registry.set(token.id, 'active'); },
+    revoke(id) { if (registry.has(id)) registry.set(id, 'revoked'); },
+    status(id) { return registry.get(id) ?? 'unknown'; },
+    async check(token, field, purpose, now = Date.now()) {
+      const v = await verify(secretHex, token);
+      if (!v.ok) return { decision: 'DENY', reason: 'bad-signature' };
+      if (registry.get(token.id) !== 'active') return { decision: 'DENY', reason: 'revoked' };
+      if (now > v.expiresAt) return { decision: 'DENY', reason: 'expired' };
+      if (purpose !== v.purpose) return { decision: 'DENY', reason: 'purpose-mismatch' };
+      if (!v.fields.includes(field)) return { decision: 'DENY', reason: 'out-of-scope' };
+      return { decision: 'ALLOW' };
+    },
+  };
+}
+
+
+
+function redact(v) {
+  const s = String(v);
+  if (s.length <= 4) return '••••';
+  return s.slice(0, 2) + '•'.repeat(Math.min(8, Math.max(3, s.length - 4))) + s.slice(-2);
+}
+
+function createBroker({ passport, auth, ledger, salt }) {
+  const s = salt ?? randomHex(8);
+  return {
+    async read(token, field, purpose, actor, now = Date.now()) {
+      const res = await auth.check(token, field, purpose, now);
+      if (res.decision === 'ALLOW') {
+        const value = passport.get(field);
+        if (ledger) {
+          const valueHash = await sha256hex(s + '|' + field + '|' + value);
+          await ledger.append({ actor, action: 'read', field, purpose, decision: 'ALLOW', valueHash, redacted: redact(value) });
+        }
+        return { ok: true, value };
+      }
+      if (ledger) await ledger.append({ actor, action: 'read', field, purpose, decision: 'DENY', reason: res.reason });
+      return { ok: false, reason: res.reason };
+    },
+  };
+}
+
+
+
+const GENESIS = '0'.repeat(64);
+
+function createLedger() {
+  const entries = [];
+  let prevHash = GENESIS;
+  let seq = 0;
+
+  async function hashOf(entryNoHash) {
+    return sha256hex(stableStringify(entryNoHash));
+  }
+
+  return {
+    async append(e) {
+      const body = { seq: seq++, ts: Date.now(), ...e, prevHash };
+      const hash = await hashOf(body);
+      const entry = { ...body, hash };
+      entries.push(entry);
+      prevHash = hash;
+      return { ...entry };
+    },
+    all() { return entries; },
+    async verifyChain() {
+      let prev = GENESIS;
+      for (let i = 0; i < entries.length; i++) {
+        const { hash, ...body } = entries[i];
+        if (body.prevHash !== prev) return { ok: false, brokenAt: i };
+        if ((await hashOf(body)) !== hash) return { ok: false, brokenAt: i };
+        prev = hash;
+      }
+      return { ok: true };
+    },
+    export() {
+      return {
+        standard: 'salvoconducto/consent-receipt/0.1',
+        receiptCount: entries.length,
+        headHash: prevHash,
+        entries: entries.map((e) => ({ ...e })),
+      };
+    },
+  };
+}
+
+
+
+const BENEFIT_REQUEST = {
+  agent: 'BenefitBot',
+  task: 'File disability benefit claim',
+  fields: ['national_id', 'monthly_income', 'diagnosis_code'],
+  purpose: 'benefit_claim',
+  ttlMs: 30 * 60 * 1000,
+};
+
+const HELPER_OVERASK = { agent: 'HelperBot', field: 'full_medical_history', purpose: 'benefit_claim' };
+
+async function createWorld(secretHex) {
+  const secret = secretHex ?? randomHex(16);
+  const passport = createPassport();
+  const auth = createAuthServer(secret);
+  const ledger = createLedger();
+  const broker = createBroker({ passport, auth, ledger });
+  async function mintGrant(fields, ttlMs) {
+    const token = await mint(secret, {
+      id: randomHex(8),
+      agent: BENEFIT_REQUEST.agent,
+      fields,
+      purpose: BENEFIT_REQUEST.purpose,
+      expiresAt: Date.now() + ttlMs,
+    });
+    auth.register(token);
+    return token;
+  }
+  return { passport, auth, ledger, broker, mintGrant };
+}
+
+function exposure(ledger, passport) {
+  const sensitive = new Set();
+  for (const e of ledger.all()) {
+    if (e.action === 'read' && e.decision === 'ALLOW' && passport.meta(e.field)?.sensitivity === 'high') {
+      sensitive.add(e.field);
+    }
+  }
+  return { sensitiveFieldsRead: [...sensitive], count: sensitive.size };
+}
+
+async function runScenario(world) {
+  const token = await world.mintGrant(BENEFIT_REQUEST.fields, BENEFIT_REQUEST.ttlMs);
+  const reads = [];
+  for (const f of BENEFIT_REQUEST.fields) {
+    reads.push(await world.broker.read(token, f, BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent));
+  }
+  const overAsk = await world.broker.read(token, HELPER_OVERASK.field, HELPER_OVERASK.purpose, HELPER_OVERASK.agent);
+  world.auth.revoke(token.id);
+  const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+  return {
+    grants: [token],
+    reads,
+    overAsk,
+    revoke: { tokenId: token.id },
+    probe,
+    exposure: exposure(world.ledger, world.passport),
+  };
+}
+
+
+const EN = {
+  title: 'Salvoconducto',
+  tagline: 'Give an agent the fewest fields it needs, for one purpose and a set time, with an honest account of what it already saw.',
+  prototypeNote: 'Prototype: the Passport, the agents, and the authorization server are simulated in your browser. The cryptography is real; the integration is not.',
+  passportNote: 'Illustrative fields, grouped by category as in the AI Passport.',
+  logNote: 'The log keeps a salted hash of each value read, not the value itself.',
+  docClass: 'Class · Agents',
+  stampGranted: 'Granted',
+  stampRevoked: 'Revoked',
+  stampDenied: 'Denied',
+  passportHeading: 'Your AI Passport',
+  requestHeading: 'Access request',
+  task: 'Task',
+  requests: 'Requests',
+  purpose: 'purpose',
+  expiresIn: 'expires in',
+  minimization: 'Minimizing: {n} of {total} fields requested',
+  grant: 'Grant',
+  editFields: 'Edit fields',
+  deny: 'Deny',
+  receiptsHeading: 'Live receipts',
+  revoke: 'Revoke all',
+  proveHeading: 'Revocation, verified',
+  proveRun: 'Test it: probe a read now',
+  proveDenied: 'DENIED. Token revoked. The next read died at the enforcement point.',
+  overAskFlag: 'Out of declared scope — blocked and logged',
+  honestyHeading: 'What the agent already saw',
+  honestyLine: '{field} entered the agent context and cannot be un-seen.',
+  exposureLine: 'Exposure minimized: {count} sensitive field(s), {minutes} min.',
+  chainOk: 'Receipt chain intact',
+  chainBroken: 'Receipt chain broken',
+  restart: 'Restart',
+  langToggle: 'Español',
+};
+
+
+const ES = {
+  title: 'Salvoconducto',
+  tagline: 'Dale a un agente los menos campos posibles, para un solo propósito y un tiempo acotado, con una cuenta honesta de lo que ya vio.',
+  prototypeNote: 'Prototipo: el Pasaporte, los agentes y el servidor de autorización están simulados en tu navegador. La criptografía es real; la integración no.',
+  passportNote: 'Campos ilustrativos, agrupados por categoría como en el Pasaporte de IA.',
+  logNote: 'El registro guarda un hash con sal de cada valor leído, no el valor.',
+  docClass: 'Clase · Agentes',
+  stampGranted: 'Concedido',
+  stampRevoked: 'Revocado',
+  stampDenied: 'Denegado',
+  passportHeading: 'Tu Pasaporte de IA',
+  requestHeading: 'Solicitud de acceso',
+  task: 'Tarea',
+  requests: 'Pide',
+  purpose: 'propósito',
+  expiresIn: 'vence en',
+  minimization: 'Minimizando: {n} de {total} campos solicitados',
+  grant: 'Conceder',
+  editFields: 'Editar campos',
+  deny: 'Denegar',
+  receiptsHeading: 'Recibos en vivo',
+  revoke: 'Revocar todo',
+  proveHeading: 'Revocación, verificada',
+  proveRun: 'Compruébalo: sondea una lectura ahora',
+  proveDenied: 'DENEGADO. Token revocado. La siguiente lectura murió en el punto de control.',
+  overAskFlag: 'Fuera del alcance declarado — bloqueado y registrado',
+  honestyHeading: 'Lo que el agente ya vio',
+  honestyLine: '{field} entró al contexto del agente y no se puede "des-ver".',
+  exposureLine: 'Exposición minimizada: {count} campo(s) sensible(s), {minutes} min.',
+  chainOk: 'Cadena de recibos íntegra',
+  chainBroken: 'Cadena de recibos rota',
+  restart: 'Reiniciar',
+  langToggle: 'English',
+};
+
+
+
+const TABLES = { en: EN, es: ES };
+
+function createI18n(initial = 'en') {
+  const state = { lang: initial };
+  return {
+    get lang() { return state.lang; },
+    setLang(code) { if (TABLES[code]) state.lang = code; },
+    t(key, vars = {}) {
+      let s = (TABLES[state.lang] ?? EN)[key] ?? key;
+      for (const [k, v] of Object.entries(vars)) s = s.split('{' + k + '}').join(String(v));
+      return s;
+    },
+  };
+}
+
+
+
+function el(tag, props = {}, kids = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2).toLowerCase(), v);
+    else n.setAttribute(k, v);
+  }
+  for (const c of kids) n.append(c);
+  return n;
+}
+
+function mrz(passport) {
+  const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
+  const pad = (s) => (s + '<'.repeat(44)).slice(0, 44);
+  const nameParts = norm(passport.meta('full_name')?.value || 'ANA ROJAS').split('<').filter(Boolean);
+  const given = nameParts[0] || 'ANA';
+  const surname = nameParts.slice(1).join('<') || 'ROJAS';
+  const line1 = pad('P<CHL' + surname + '<<' + given);
+  const dob = (passport.meta('date_of_birth')?.value || '1979-04-11').replace(/[^0-9]/g, '').slice(2, 8) || '790411';
+  const docno = (passport.meta('national_id')?.value || '123456789').replace(/[^0-9]/g, '').slice(0, 9);
+  const line2 = pad(pad(docno).slice(0, 10) + 'CHL' + dob + '4F310811' + '9');
+  return line1 + '\n' + line2;
+}
+
+function stampEl(kind, label) {
+  return el('span', { class: 'stamp ' + kind, text: label });
+}
+
+function mount(root, { world, i18n }) {
+  const t = (k, v) => i18n.t(k, v);
+  const selected = new Set(BENEFIT_REQUEST.fields);
+  let token = null;
+
+  root.replaceChildren();
+
+  const header = el('header', { class: 'doc-head' }, [
+    el('div', {}, [
+      el('h1', { text: t('title'), id: 'title' }),
+      el('div', { class: 'serial', text: 'N° SC-26-0847' }),
+      el('div', { class: 'docclass', text: t('docClass') }),
+      el('p', { class: 'tagline', text: t('tagline') }),
+      el('p', { class: 'protonote', text: t('prototypeNote') }),
+    ]),
+    el('div', {}, [
+      el('button', { id: 'lang', text: t('langToggle'), onclick: () => { i18n.setLang(i18n.lang === 'en' ? 'es' : 'en'); mount(root, { world, i18n }); } }),
+    ]),
+  ]);
+
+  const passportPanel = el('section', { class: 'panel', id: 'passport' }, [
+    el('h2', { text: t('passportHeading') }),
+    el('p', { class: 'note', text: t('passportNote') }),
+  ]);
+  const fields = el('div', { class: 'fields' });
+  for (const f of world.passport.list()) {
+    fields.append(el('div', { class: 'field', id: 'pf-' + f.key }, [
+      el('div', {}, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
+      el('div', { class: 'k', text: f.key }),
+    ]));
+  }
+  passportPanel.append(fields, el('div', { class: 'mrz', text: mrz(world.passport) }));
+
+  const reqPanel = el('section', { class: 'panel pass', id: 'request' }, [el('h2', { text: t('requestHeading') })]);
+  reqPanel.append(el('p', { class: 'agentline' }, [el('strong', { text: BENEFIT_REQUEST.agent }), el('span', { text: ' — ' + BENEFIT_REQUEST.task })]));
+  const meter = el('div', { class: 'meter' }, [el('span', { id: 'meterbar' })]);
+  const meterLabel = el('p', { class: 'meterlabel', id: 'meterlabel' });
+  const reqList = el('div', { id: 'reqlist' });
+  const stamps = el('div', { class: 'stamps', id: 'stamps' });
+
+  function drawMeter() {
+    const total = world.passport.count();
+    const n = selected.size;
+    root.querySelector('#meterbar').style.width = Math.round((n / total) * 100) + '%';
+    root.querySelector('#meterlabel').textContent = t('minimization', { n, total });
+  }
+  for (const f of BENEFIT_REQUEST.fields) {
+    const cb = el('input', { type: 'checkbox', id: 'cb-' + f });
+    cb.checked = true;
+    cb.addEventListener('change', () => { cb.checked ? selected.add(f) : selected.delete(f); drawMeter(); });
+    const meta = world.passport.meta(f);
+    reqList.append(el('div', { class: 'reqfield' }, [
+      cb, el('label', { for: 'cb-' + f, text: meta.label }),
+      el('span', { class: 'k', text: BENEFIT_REQUEST.purpose }),
+    ]));
+  }
+  const grantBtn = el('button', { class: 'primary', id: 'grant', text: t('grant') });
+  const denyBtn = el('button', { id: 'deny', text: t('deny') });
+  reqPanel.append(reqList, meter, meterLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
+
+  const feedPanel = el('section', { class: 'panel', id: 'receipts' }, [el('h2', { text: t('receiptsHeading') })]);
+  const feed = el('div', { class: 'feed', id: 'feed' });
+  const logNote = el('div', { class: 'lognote', text: t('logNote') });
+  const chain = el('div', { class: 'chain', id: 'chain' });
+  const revokeBtn = el('button', { class: 'danger', id: 'revoke', text: t('revoke'), disabled: 'true' });
+  const proveBox = el('div', { class: 'prove', id: 'prove' });
+  const honesty = el('div', { class: 'honesty', id: 'honesty' });
+  feedPanel.append(feed, logNote, chain, el('div', { class: 'controls' }, [revokeBtn]), proveBox, honesty);
+
+  async function refreshFeed() {
+    feed.replaceChildren();
+    for (const e of world.ledger.all()) {
+      const cls = e.decision === 'ALLOW' ? 'allow' : 'deny';
+      feed.append(el('div', { class: 'receipt ' + cls }, [
+        el('span', { class: 'seq', text: '#' + e.seq + '  ' }),
+        el('span', { text: e.actor + ' · ' + e.action + ' ' + e.field + '  ' }),
+        el('span', { class: 'badge ' + cls, text: e.decision + (e.reason ? ' · ' + e.reason : '') }),
+        e.decision === 'ALLOW'
+          ? el('div', { class: 'val', text: '→ ' + e.redacted + '   #' + e.valueHash.slice(0, 8) })
+          : el('div', { class: 'val', text: e.reason === 'out-of-scope' ? t('overAskFlag') : '' }),
+      ]));
+    }
+    const v = await world.ledger.verifyChain();
+    chain.textContent = v.ok ? '✓ ' + t('chainOk') : '✗ ' + t('chainBroken');
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  grantBtn.addEventListener('click', async () => {
+    token = await world.mintGrant([...selected], BENEFIT_REQUEST.ttlMs);
+    for (const f of selected) root.querySelector('#pf-' + f)?.classList.add('granted');
+    grantBtn.disabled = true; denyBtn.disabled = true; revokeBtn.disabled = false;
+    stamps.append(stampEl('granted', t('stampGranted')));
+    for (const f of BENEFIT_REQUEST.fields) {
+      if (selected.has(f)) await world.broker.read(token, f, BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+    }
+    await world.broker.read(token, HELPER_OVERASK.field, HELPER_OVERASK.purpose, HELPER_OVERASK.agent);
+    await refreshFeed();
+  });
+
+  revokeBtn.addEventListener('click', async () => {
+    world.auth.revoke(token.id);
+    revokeBtn.disabled = true;
+    stamps.append(stampEl('revoked', t('stampRevoked')));
+    const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+    proveBox.classList.add('dead');
+    proveBox.replaceChildren(
+      el('strong', { text: t('proveHeading') }),
+      el('div', { text: t('proveRun') }),
+      el('div', { class: 'verdict', text: probe.ok ? '??' : t('proveDenied') }),
+    );
+    const ex = exposure(world.ledger, world.passport);
+    honesty.replaceChildren(
+      el('strong', { text: t('honestyHeading') }),
+      ...ex.sensitiveFieldsRead.map((f) => el('div', { text: t('honestyLine', { field: world.passport.meta(f).label }) })),
+      el('div', { text: t('exposureLine', { count: ex.count, minutes: 1 }) }),
+    );
+    await refreshFeed();
+  });
+
+  denyBtn.addEventListener('click', () => {
+    grantBtn.disabled = true; denyBtn.disabled = true;
+    stamps.append(stampEl('denied', t('stampDenied')));
+  });
+
+  root.append(header, el('div', { class: 'grid' }, [
+    el('div', { class: 'col' }, [passportPanel]),
+    el('div', { class: 'col' }, [reqPanel, feedPanel]),
+  ]));
+  drawMeter();
+}
+
+
+
+const world = await createWorld();
+const i18n = createI18n('en');
+mount(document.getElementById('app'), { world, i18n });
+
+})();
+</script>
+</body>
+</html>
