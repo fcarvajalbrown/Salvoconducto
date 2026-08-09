@@ -86,13 +86,24 @@ h1 { font: 800 26px/1 var(--mono); letter-spacing: 0.14em; text-transform: upper
 
 .agentline { margin: 0 0 10px; font: 14px var(--sans); }
 .agentline strong { font: 700 13px var(--mono); letter-spacing: 0.04em; }
+.reqsummary { margin: 0 0 8px; font: 13px/1.4 var(--sans); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.reqsummary .reqmeta { color: var(--muted); font: 11px var(--mono); letter-spacing: 0.04em; }
 
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 300px; overflow: auto; }
 @media (max-width: 520px) { .fields { grid-template-columns: 1fr; } }
-.field { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.field { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+.field .frow { display: flex; align-items: center; }
 .field .lab { font: 12px/1.3 var(--sans); }
 .field .k { color: var(--muted); font: 11px var(--mono); letter-spacing: 0.03em; }
+.field .fstate { margin-top: 4px; font: 10px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.field.requested { cursor: pointer; }
+.field.requested:hover { border-color: var(--teal); }
+.field.requested:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.field.requested .fstate { color: var(--teal); }
+.field.selected { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); background: color-mix(in srgb, var(--teal) 8%, var(--panel)); }
+.field.notrequested { opacity: 0.5; }
 .field.granted { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
+.field.granted .fstate { color: var(--allow); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .dot.high { background: var(--hi); } .dot.medium { background: var(--med); } .dot.low { background: var(--lo); }
 

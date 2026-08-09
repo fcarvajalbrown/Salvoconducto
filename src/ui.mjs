@@ -31,10 +31,33 @@ function stampEl(kind, label) {
 
 export function mount(root, { world, i18n }) {
   const t = (k, v) => i18n.t(k, v);
+  const requested = new Set(BENEFIT_REQUEST.fields);
   const selected = new Set(BENEFIT_REQUEST.fields);
+  const cardEls = new Map();
   let token = null;
+  let granted = false;
+  let grantedFields = new Set();
 
   root.replaceChildren();
+
+  function fieldStateText(key) {
+    if (!requested.has(key)) return t('notRequested');
+    if (granted) return grantedFields.has(key) ? t('shared') : t('withheld');
+    return selected.has(key) ? t('willShare') : t('tapToShare');
+  }
+  function fieldClass(key) {
+    const parts = ['field'];
+    parts.push(requested.has(key) ? 'requested' : 'notrequested');
+    if (granted) { if (grantedFields.has(key)) parts.push('granted'); }
+    else if (selected.has(key)) parts.push('selected');
+    return parts.join(' ');
+  }
+  function updateCard(key) {
+    const card = cardEls.get(key);
+    if (!card) return;
+    card.className = fieldClass(key);
+    card.querySelector('.fstate').textContent = fieldStateText(key);
+  }
 
   const header = el('header', { class: 'doc-head' }, [
     el('div', {}, [
@@ -55,39 +78,49 @@ export function mount(root, { world, i18n }) {
   ]);
   const fields = el('div', { class: 'fields' });
   for (const f of world.passport.list()) {
-    fields.append(el('div', { class: 'field', id: 'pf-' + f.key }, [
-      el('div', {}, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
+    const card = el('div', { class: fieldClass(f.key), id: 'pf-' + f.key }, [
+      el('div', { class: 'frow' }, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
       el('div', { class: 'k', text: f.key }),
-    ]));
+      el('div', { class: 'fstate', text: fieldStateText(f.key) }),
+    ]);
+    if (requested.has(f.key)) {
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      const toggle = () => {
+        if (granted) return;
+        if (selected.has(f.key)) selected.delete(f.key); else selected.add(f.key);
+        updateCard(f.key);
+        drawMeter();
+      };
+      card.addEventListener('click', toggle);
+      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    }
+    cardEls.set(f.key, card);
+    fields.append(card);
   }
   passportPanel.append(fields, el('div', { class: 'mrz', text: mrz(world.passport) }));
 
   const reqPanel = el('section', { class: 'panel pass', id: 'request' }, [el('h2', { text: t('requestHeading') })]);
-  reqPanel.append(el('p', { class: 'agentline' }, [el('strong', { text: BENEFIT_REQUEST.agent }), el('span', { text: ' — ' + BENEFIT_REQUEST.task })]));
+  const requestedLabels = BENEFIT_REQUEST.fields.map((k) => world.passport.meta(k).label).join(', ');
+  reqPanel.append(
+    el('p', { class: 'agentline' }, [el('strong', { text: BENEFIT_REQUEST.agent }), el('span', { text: ' · ' + BENEFIT_REQUEST.task })]),
+    el('p', { class: 'reqsummary' }, [el('span', { text: t('requests') + ': ' + requestedLabels }), el('span', { class: 'reqmeta', text: BENEFIT_REQUEST.purpose + ' · 30 min' })]),
+    el('p', { class: 'note', text: t('chooseHint') }),
+  );
   const meter = el('div', { class: 'meter' }, [el('span', { id: 'meterbar' })]);
   const meterLabel = el('p', { class: 'meterlabel', id: 'meterlabel' });
-  const reqList = el('div', { id: 'reqlist' });
   const stamps = el('div', { class: 'stamps', id: 'stamps' });
 
   function drawMeter() {
     const total = world.passport.count();
-    const n = selected.size;
+    const n = granted ? grantedFields.size : selected.size;
     root.querySelector('#meterbar').style.width = Math.round((n / total) * 100) + '%';
     root.querySelector('#meterlabel').textContent = t('minimization', { n, total });
   }
-  for (const f of BENEFIT_REQUEST.fields) {
-    const cb = el('input', { type: 'checkbox', id: 'cb-' + f });
-    cb.checked = true;
-    cb.addEventListener('change', () => { cb.checked ? selected.add(f) : selected.delete(f); drawMeter(); });
-    const meta = world.passport.meta(f);
-    reqList.append(el('div', { class: 'reqfield' }, [
-      cb, el('label', { for: 'cb-' + f, text: meta.label }),
-      el('span', { class: 'k', text: BENEFIT_REQUEST.purpose }),
-    ]));
-  }
+
   const grantBtn = el('button', { class: 'primary', id: 'grant', text: t('grant') });
   const denyBtn = el('button', { id: 'deny', text: t('deny') });
-  reqPanel.append(reqList, meter, meterLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
+  reqPanel.append(meter, meterLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
 
   const feedPanel = el('section', { class: 'panel', id: 'receipts' }, [el('h2', { text: t('receiptsHeading') })]);
   const feed = el('div', { class: 'feed', id: 'feed' });
@@ -117,12 +150,16 @@ export function mount(root, { world, i18n }) {
   }
 
   grantBtn.addEventListener('click', async () => {
+    if (selected.size === 0) return;
     token = await world.mintGrant([...selected], BENEFIT_REQUEST.ttlMs);
-    for (const f of selected) root.querySelector('#pf-' + f)?.classList.add('granted');
+    granted = true;
+    grantedFields = new Set(selected);
+    for (const key of cardEls.keys()) updateCard(key);
     grantBtn.disabled = true; denyBtn.disabled = true; revokeBtn.disabled = false;
     stamps.append(stampEl('granted', t('stampGranted')));
+    drawMeter();
     for (const f of BENEFIT_REQUEST.fields) {
-      if (selected.has(f)) await world.broker.read(token, f, BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+      if (grantedFields.has(f)) await world.broker.read(token, f, BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
     }
     await world.broker.read(token, HELPER_OVERASK.field, HELPER_OVERASK.purpose, HELPER_OVERASK.agent);
     await refreshFeed();

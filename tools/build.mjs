@@ -45,12 +45,12 @@ ${body}</body>
 `;
 
 mkdirSync(new URL('dist/', ROOT), { recursive: true });
+writeFileSync(new URL('index.html', ROOT), standalone);
 writeFileSync(new URL('dist/artifact.html', ROOT), body);
-writeFileSync(new URL('dist/salvoconducto.html', ROOT), standalone);
 
 if (/\b(src=|href=|https?:\/\/)/.test(body.replace(/https?:\/\/[^\s'"]*w3\.org/g, ''))) {
   console.error('External reference detected in artifact');
   process.exit(1);
 }
-console.log('Built dist/artifact.html —', body.length, 'bytes');
-console.log('Built dist/salvoconducto.html —', standalone.length, 'bytes (full standalone for VPS)');
+console.log('Built index.html —', standalone.length, 'bytes (served by GitHub Pages)');
+console.log('Built dist/artifact.html —', body.length, 'bytes (body-only)');
