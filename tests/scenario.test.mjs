@@ -6,7 +6,7 @@ test('the five-beat scenario behaves as designed', async () => {
   const world = await createWorld();
   const trace = await runScenario(world);
 
-  assert.deepEqual(BENEFIT_REQUEST.fields, ['national_id', 'monthly_income', 'diagnosis_code']);
+  assert.deepEqual(BENEFIT_REQUEST.fields, ['identity.national_id', 'income.monthly', 'health.diagnosis_code']);
   assert.equal(trace.reads.filter((r) => r.ok).length, 3);
   assert.equal(trace.overAsk.ok, false);
   assert.equal(trace.overAsk.reason, 'out-of-scope');
@@ -20,6 +20,6 @@ test('exposure is minimized and reported honestly', async () => {
   const world = await createWorld();
   const trace = await runScenario(world);
   assert.ok(trace.exposure.count >= 1);
-  assert.ok(trace.exposure.sensitiveFieldsRead.includes('diagnosis_code'));
-  assert.equal(trace.exposure.sensitiveFieldsRead.includes('full_medical_history'), false);
+  assert.ok(trace.exposure.sensitiveFieldsRead.includes('health.diagnosis_code'));
+  assert.equal(trace.exposure.sensitiveFieldsRead.includes('health.full_history'), false);
 });

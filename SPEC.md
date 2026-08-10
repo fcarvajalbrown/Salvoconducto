@@ -63,9 +63,10 @@ prove the diagnosis field is dead.
 
 ## 4. The demo (five beats)
 
-1. **The ask.** `BenefitBot` declares its task and requests 3 of your 24 Passport fields, each
-   with `{purpose, ttl}`. A **minimization meter** shows "3 of 24." You can drop a field, grant,
-   or deny.
+1. **The ask.** `BenefitBot` declares its task and requests 3 of your 20 Passport fields, each
+   with `{purpose, ttl}`. A **minimization meter** shows "3 of 20 fields" and "3 of 6 categories
+   touched" — the second number is the one that shows scope across the Passport. You can drop a
+   field, grant, or deny.
 2. **Live receipts.** On grant, a scoped, time-boxed **capability token** is minted (visible,
    with its caveats). A receipt feed streams every read (with the value returned) and every
    action, each purpose-checked in real time.
@@ -91,9 +92,13 @@ they are genuine.
 
 ### 5.1 Components (modules, each independently testable)
 
-- `passport.js` — the simulated AI Passport: a structured record of ~24 fields grouped by topic
-  (Identity, Income, Health, Contacts, Payment, …), each with a sensitivity tag and value. Pure
-  data + accessors. No UI.
+- `passport.js` — the simulated AI Passport: 20 fields nested under six declared categories
+  (identity, contact, income, payment, health, schedule), each addressed by a dotted scope path
+  (`identity.national_id`, `income.monthly`, `health.diagnosis_code`) and carrying a sensitivity
+  tag and value. The nesting and the dotted path mirror the request format published on
+  ego.ist/developer; the categories and the field content are ours, chosen for the benefit-claim
+  scenario. Exposes `list`, `get`, `meta`, `count`, `categories`, `categoryCount`, `categoryOf`.
+  Pure data + accessors. No UI.
 - `token.js` — **capability token** (Macaroon-style). Mint a root token bound to
   `{agent, fields[], purpose, ttl, nonce}`; attenuate by appending signed caveats that can only
   *narrow* scope. Signing/verification via HMAC-SHA-256 chained construction over Web Crypto.

@@ -99,7 +99,15 @@ h1 { font: 800 26px/1 var(--mono); letter-spacing: 0.14em; text-transform: upper
 .reqsummary { margin: 0 0 8px; font: 13px/1.4 var(--sans); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .reqsummary .reqmeta { color: var(--muted); font: 11px var(--mono); letter-spacing: 0.04em; }
 
-.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 300px; overflow: auto; }
+.catalog { max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.catgroup { border: 1px solid var(--line); border-radius: 10px; padding: 8px 9px; }
+.catgroup.touched { border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); }
+.cathead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.cathead .catname { font: 700 12px var(--sans); letter-spacing: 0.02em; }
+.cathead .catkey { color: var(--muted); font: 11px var(--mono); }
+.cathead .catcount { margin-left: auto; font: 10px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.catgroup.touched .cathead .catcount { color: var(--teal); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 @media (max-width: 520px) { .fields { grid-template-columns: 1fr; } }
 .field { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
 .field .frow { display: flex; align-items: center; }
@@ -207,36 +215,64 @@ function stableStringify(v) {
 }
 
 
-const FIELDS = [
-  { key: 'national_id', topic: 'Identity', sensitivity: 'high', label: 'National ID', value: '12.345.678-9' },
-  { key: 'full_name', topic: 'Identity', sensitivity: 'medium', label: 'Full name', value: 'Ana Rojas Pérez' },
-  { key: 'date_of_birth', topic: 'Identity', sensitivity: 'medium', label: 'Date of birth', value: '1979-04-11' },
-  { key: 'home_address', topic: 'Identity', sensitivity: 'high', label: 'Home address', value: 'Av. Grecia 1234, Ñuñoa' },
-  { key: 'phone', topic: 'Contacts', sensitivity: 'medium', label: 'Phone', value: '+56 9 8765 4321' },
-  { key: 'email', topic: 'Contacts', sensitivity: 'low', label: 'Email', value: 'ana.rojas@example.cl' },
-  { key: 'emergency_contact', topic: 'Contacts', sensitivity: 'medium', label: 'Emergency contact', value: 'M. Rojas +56 9 5555 1212' },
-  { key: 'monthly_income', topic: 'Income', sensitivity: 'high', label: 'Monthly income', value: 'CLP 520.000' },
-  { key: 'employer', topic: 'Income', sensitivity: 'medium', label: 'Employer', value: 'Independent' },
-  { key: 'tax_id', topic: 'Income', sensitivity: 'high', label: 'Tax ID', value: '12.345.678-9' },
-  { key: 'bank_account', topic: 'Payment', sensitivity: 'high', label: 'Bank account', value: 'Ch** **** **** 4417' },
-  { key: 'card_last4', topic: 'Payment', sensitivity: 'medium', label: 'Card (last 4)', value: '4417' },
-  { key: 'payment_history', topic: 'Payment', sensitivity: 'high', label: 'Payment history', value: '36 months of transactions' },
-  { key: 'diagnosis_code', topic: 'Health', sensitivity: 'high', label: 'Diagnosis code', value: 'ICD-10 G35' },
-  { key: 'full_medical_history', topic: 'Health', sensitivity: 'high', label: 'Full medical history', value: '14 years of records' },
-  { key: 'medications', topic: 'Health', sensitivity: 'high', label: 'Medications', value: 'ocrelizumab' },
-  { key: 'blood_type', topic: 'Health', sensitivity: 'medium', label: 'Blood type', value: 'O+' },
-  { key: 'disability_percent', topic: 'Health', sensitivity: 'high', label: 'Disability rating', value: '45%' },
-  { key: 'calendar_today', topic: 'Schedule', sensitivity: 'low', label: "Today's calendar", value: '2 events' },
-  { key: 'location', topic: 'Schedule', sensitivity: 'medium', label: 'Location', value: 'Santiago, CL' },
+const CATEGORIES = [
+  { id: 'identity', label: 'Identity' },
+  { id: 'contact', label: 'Contact' },
+  { id: 'income', label: 'Income' },
+  { id: 'payment', label: 'Payment' },
+  { id: 'health', label: 'Health' },
+  { id: 'schedule', label: 'Schedule' },
 ];
+
+const FIELDS = [
+  { key: 'identity.national_id', sensitivity: 'high', label: 'National ID', value: '12.345.678-9' },
+  { key: 'identity.full_name', sensitivity: 'medium', label: 'Full name', value: 'Ana Rojas Pérez' },
+  { key: 'identity.date_of_birth', sensitivity: 'medium', label: 'Date of birth', value: '1979-04-11' },
+  { key: 'identity.home_address', sensitivity: 'high', label: 'Home address', value: 'Av. Grecia 1234, Ñuñoa' },
+  { key: 'contact.phone', sensitivity: 'medium', label: 'Phone', value: '+56 9 8765 4321' },
+  { key: 'contact.email', sensitivity: 'low', label: 'Email', value: 'ana.rojas@example.cl' },
+  { key: 'contact.emergency', sensitivity: 'medium', label: 'Emergency contact', value: 'M. Rojas +56 9 5555 1212' },
+  { key: 'income.monthly', sensitivity: 'high', label: 'Monthly income', value: 'CLP 520.000' },
+  { key: 'income.employer', sensitivity: 'medium', label: 'Employer', value: 'Independent' },
+  { key: 'income.tax_id', sensitivity: 'high', label: 'Tax ID', value: '12.345.678-9' },
+  { key: 'payment.account', sensitivity: 'high', label: 'Bank account', value: 'Ch** **** **** 4417' },
+  { key: 'payment.card_last4', sensitivity: 'medium', label: 'Card (last 4)', value: '4417' },
+  { key: 'payment.history', sensitivity: 'high', label: 'Payment history', value: '36 months of transactions' },
+  { key: 'health.diagnosis_code', sensitivity: 'high', label: 'Diagnosis code', value: 'ICD-10 G35' },
+  { key: 'health.full_history', sensitivity: 'high', label: 'Full medical history', value: '14 years of records' },
+  { key: 'health.medications', sensitivity: 'high', label: 'Medications', value: 'ocrelizumab' },
+  { key: 'health.blood_type', sensitivity: 'medium', label: 'Blood type', value: 'O+' },
+  { key: 'health.disability_rating', sensitivity: 'high', label: 'Disability rating', value: '45%' },
+  { key: 'schedule.today', sensitivity: 'low', label: "Today's calendar", value: '2 events' },
+  { key: 'schedule.location', sensitivity: 'medium', label: 'Location', value: 'Santiago, CL' },
+];
+
+const LABELS = new Map(CATEGORIES.map((c) => [c.id, c.label]));
+
+function categoryIdOf(key) {
+  return key.slice(0, key.indexOf('.'));
+}
+
+function decorate(f) {
+  const category = categoryIdOf(f.key);
+  return { ...f, category, categoryLabel: LABELS.get(category) };
+}
 
 function createPassport() {
   const map = new Map(FIELDS.map((f) => [f.key, f]));
   return {
-    list() { return FIELDS.map((f) => ({ ...f })); },
+    list() { return FIELDS.map(decorate); },
     get(key) { return map.get(key)?.value; },
-    meta(key) { const f = map.get(key); return f ? { ...f } : undefined; },
+    meta(key) { const f = map.get(key); return f ? decorate(f) : undefined; },
     count() { return FIELDS.length; },
+    categories() {
+      return CATEGORIES.map((c) => ({
+        ...c,
+        fields: FIELDS.filter((f) => categoryIdOf(f.key) === c.id).map(decorate),
+      }));
+    },
+    categoryCount() { return CATEGORIES.length; },
+    categoryOf(key) { const f = map.get(key); return f ? categoryIdOf(f.key) : undefined; },
   };
 }
 
@@ -371,12 +407,12 @@ function createLedger() {
 const BENEFIT_REQUEST = {
   agent: 'BenefitBot',
   task: 'File disability benefit claim',
-  fields: ['national_id', 'monthly_income', 'diagnosis_code'],
+  fields: ['identity.national_id', 'income.monthly', 'health.diagnosis_code'],
   purpose: 'benefit_claim',
   ttlMs: 30 * 60 * 1000,
 };
 
-const HELPER_OVERASK = { agent: 'HelperBot', field: 'full_medical_history', purpose: 'benefit_claim' };
+const HELPER_OVERASK = { agent: 'HelperBot', field: 'health.full_history', purpose: 'benefit_claim' };
 
 async function createWorld(secretHex) {
   const secret = secretHex ?? randomHex(16);
@@ -416,7 +452,7 @@ async function runScenario(world) {
   }
   const overAsk = await world.broker.read(token, HELPER_OVERASK.field, HELPER_OVERASK.purpose, HELPER_OVERASK.agent);
   world.auth.revoke(token.id);
-  const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+  const probe = await world.broker.read(token, 'health.diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
   return {
     grants: [token],
     reads,
@@ -451,6 +487,9 @@ const EN = {
   purpose: 'purpose',
   expiresIn: 'expires in',
   minimization: 'Minimizing: {n} of {total} fields requested',
+  categoriesTouched: '{cats} of {catTotal} categories touched',
+  catAsked: '{n} requested',
+  catUntouched: 'untouched',
   grant: 'Grant',
   editFields: 'Edit fields',
   deny: 'Deny',
@@ -493,6 +532,9 @@ const ES = {
   purpose: 'propósito',
   expiresIn: 'vence en',
   minimization: 'Minimizando: {n} de {total} campos solicitados',
+  categoriesTouched: '{cats} de {catTotal} categorías tocadas',
+  catAsked: '{n} solicitado(s)',
+  catUntouched: 'sin tocar',
   grant: 'Conceder',
   editFields: 'Editar campos',
   deny: 'Denegar',
@@ -545,18 +587,22 @@ function el(tag, props = {}, kids = []) {
 function mrz(passport) {
   const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
   const pad = (s) => (s + '<'.repeat(44)).slice(0, 44);
-  const nameParts = norm(passport.meta('full_name')?.value || 'ANA ROJAS').split('<').filter(Boolean);
+  const nameParts = norm(passport.meta('identity.full_name')?.value || 'ANA ROJAS').split('<').filter(Boolean);
   const given = nameParts[0] || 'ANA';
   const surname = nameParts.slice(1).join('<') || 'ROJAS';
   const line1 = pad('P<CHL' + surname + '<<' + given);
-  const dob = (passport.meta('date_of_birth')?.value || '1979-04-11').replace(/[^0-9]/g, '').slice(2, 8) || '790411';
-  const docno = (passport.meta('national_id')?.value || '123456789').replace(/[^0-9]/g, '').slice(0, 9);
+  const dob = (passport.meta('identity.date_of_birth')?.value || '1979-04-11').replace(/[^0-9]/g, '').slice(2, 8) || '790411';
+  const docno = (passport.meta('identity.national_id')?.value || '123456789').replace(/[^0-9]/g, '').slice(0, 9);
   const line2 = pad(pad(docno).slice(0, 10) + 'CHL' + dob + '4F310811' + '9');
   return line1 + '\n' + line2;
 }
 
 function stampEl(kind, label) {
   return el('span', { class: 'stamp ' + kind, text: label });
+}
+
+function domId(key) {
+  return 'pf-' + key.replace(/\./g, '-');
 }
 
 function mount(root, { world, i18n }) {
@@ -606,29 +652,39 @@ function mount(root, { world, i18n }) {
     el('h2', { text: t('passportHeading') }),
     el('p', { class: 'note', text: t('passportNote') }),
   ]);
-  const fields = el('div', { class: 'fields' });
-  for (const f of world.passport.list()) {
-    const card = el('div', { class: fieldClass(f.key), id: 'pf-' + f.key }, [
-      el('div', { class: 'frow' }, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
-      el('div', { class: 'k', text: f.key }),
-      el('div', { class: 'fstate', text: fieldStateText(f.key) }),
+  const catalog = el('div', { class: 'catalog' });
+  for (const cat of world.passport.categories()) {
+    const asked = cat.fields.filter((f) => requested.has(f.key)).length;
+    const head = el('div', { class: 'cathead' }, [
+      el('span', { class: 'catname', text: cat.label }),
+      el('span', { class: 'catkey', text: cat.id }),
+      el('span', { class: 'catcount', text: asked ? t('catAsked', { n: asked }) : t('catUntouched') }),
     ]);
-    if (requested.has(f.key)) {
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      const toggle = () => {
-        if (granted) return;
-        if (selected.has(f.key)) selected.delete(f.key); else selected.add(f.key);
-        updateCard(f.key);
-        drawMeter();
-      };
-      card.addEventListener('click', toggle);
-      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    const fields = el('div', { class: 'fields' });
+    for (const f of cat.fields) {
+      const card = el('div', { class: fieldClass(f.key), id: domId(f.key) }, [
+        el('div', { class: 'frow' }, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
+        el('div', { class: 'k', text: f.key }),
+        el('div', { class: 'fstate', text: fieldStateText(f.key) }),
+      ]);
+      if (requested.has(f.key)) {
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        const toggle = () => {
+          if (granted) return;
+          if (selected.has(f.key)) selected.delete(f.key); else selected.add(f.key);
+          updateCard(f.key);
+          drawMeter();
+        };
+        card.addEventListener('click', toggle);
+        card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      }
+      cardEls.set(f.key, card);
+      fields.append(card);
     }
-    cardEls.set(f.key, card);
-    fields.append(card);
+    catalog.append(el('div', { class: asked ? 'catgroup touched' : 'catgroup' }, [head, fields]));
   }
-  passportPanel.append(fields, el('div', { class: 'mrz', text: mrz(world.passport) }));
+  passportPanel.append(catalog, el('div', { class: 'mrz', text: mrz(world.passport) }));
 
   const reqPanel = el('section', { class: 'panel pass', id: 'request' }, [el('h2', { text: t('requestHeading') })]);
   const requestedLabels = BENEFIT_REQUEST.fields.map((k) => world.passport.meta(k).label).join(', ');
@@ -639,18 +695,23 @@ function mount(root, { world, i18n }) {
   );
   const meter = el('div', { class: 'meter' }, [el('span', { id: 'meterbar' })]);
   const meterLabel = el('p', { class: 'meterlabel', id: 'meterlabel' });
+  const catLabel = el('p', { class: 'meterlabel', id: 'catlabel' });
   const stamps = el('div', { class: 'stamps', id: 'stamps' });
 
   function drawMeter() {
     const total = world.passport.count();
-    const n = granted ? grantedFields.size : selected.size;
+    const catTotal = world.passport.categoryCount();
+    const live = granted ? grantedFields : selected;
+    const n = live.size;
+    const cats = new Set([...live].map((k) => world.passport.categoryOf(k))).size;
     root.querySelector('#meterbar').style.width = Math.round((n / total) * 100) + '%';
     root.querySelector('#meterlabel').textContent = t('minimization', { n, total });
+    root.querySelector('#catlabel').textContent = t('categoriesTouched', { cats, catTotal });
   }
 
   const grantBtn = el('button', { class: 'primary', id: 'grant', text: t('grant') });
   const denyBtn = el('button', { id: 'deny', text: t('deny') });
-  reqPanel.append(meter, meterLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
+  reqPanel.append(meter, meterLabel, catLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
 
   const feedPanel = el('section', { class: 'panel', id: 'receipts' }, [el('h2', { text: t('receiptsHeading') })]);
   const feed = el('div', { class: 'feed', id: 'feed' });
@@ -699,7 +760,7 @@ function mount(root, { world, i18n }) {
     world.auth.revoke(token.id);
     revokeBtn.disabled = true;
     stamps.append(stampEl('revoked', t('stampRevoked')));
-    const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+    const probe = await world.broker.read(token, 'health.diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
     proveBox.classList.add('dead');
     proveBox.replaceChildren(
       el('strong', { text: t('proveHeading') }),

@@ -8,12 +8,12 @@ import { randomHex } from './cryptoutil.mjs';
 export const BENEFIT_REQUEST = {
   agent: 'BenefitBot',
   task: 'File disability benefit claim',
-  fields: ['national_id', 'monthly_income', 'diagnosis_code'],
+  fields: ['identity.national_id', 'income.monthly', 'health.diagnosis_code'],
   purpose: 'benefit_claim',
   ttlMs: 30 * 60 * 1000,
 };
 
-export const HELPER_OVERASK = { agent: 'HelperBot', field: 'full_medical_history', purpose: 'benefit_claim' };
+export const HELPER_OVERASK = { agent: 'HelperBot', field: 'health.full_history', purpose: 'benefit_claim' };
 
 export async function createWorld(secretHex) {
   const secret = secretHex ?? randomHex(16);
@@ -53,7 +53,7 @@ export async function runScenario(world) {
   }
   const overAsk = await world.broker.read(token, HELPER_OVERASK.field, HELPER_OVERASK.purpose, HELPER_OVERASK.agent);
   world.auth.revoke(token.id);
-  const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+  const probe = await world.broker.read(token, 'health.diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
   return {
     grants: [token],
     reads,

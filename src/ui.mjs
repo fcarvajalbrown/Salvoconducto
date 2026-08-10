@@ -15,18 +15,22 @@ function el(tag, props = {}, kids = []) {
 function mrz(passport) {
   const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '<');
   const pad = (s) => (s + '<'.repeat(44)).slice(0, 44);
-  const nameParts = norm(passport.meta('full_name')?.value || 'ANA ROJAS').split('<').filter(Boolean);
+  const nameParts = norm(passport.meta('identity.full_name')?.value || 'ANA ROJAS').split('<').filter(Boolean);
   const given = nameParts[0] || 'ANA';
   const surname = nameParts.slice(1).join('<') || 'ROJAS';
   const line1 = pad('P<CHL' + surname + '<<' + given);
-  const dob = (passport.meta('date_of_birth')?.value || '1979-04-11').replace(/[^0-9]/g, '').slice(2, 8) || '790411';
-  const docno = (passport.meta('national_id')?.value || '123456789').replace(/[^0-9]/g, '').slice(0, 9);
+  const dob = (passport.meta('identity.date_of_birth')?.value || '1979-04-11').replace(/[^0-9]/g, '').slice(2, 8) || '790411';
+  const docno = (passport.meta('identity.national_id')?.value || '123456789').replace(/[^0-9]/g, '').slice(0, 9);
   const line2 = pad(pad(docno).slice(0, 10) + 'CHL' + dob + '4F310811' + '9');
   return line1 + '\n' + line2;
 }
 
 function stampEl(kind, label) {
   return el('span', { class: 'stamp ' + kind, text: label });
+}
+
+function domId(key) {
+  return 'pf-' + key.replace(/\./g, '-');
 }
 
 export function mount(root, { world, i18n }) {
@@ -76,29 +80,39 @@ export function mount(root, { world, i18n }) {
     el('h2', { text: t('passportHeading') }),
     el('p', { class: 'note', text: t('passportNote') }),
   ]);
-  const fields = el('div', { class: 'fields' });
-  for (const f of world.passport.list()) {
-    const card = el('div', { class: fieldClass(f.key), id: 'pf-' + f.key }, [
-      el('div', { class: 'frow' }, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
-      el('div', { class: 'k', text: f.key }),
-      el('div', { class: 'fstate', text: fieldStateText(f.key) }),
+  const catalog = el('div', { class: 'catalog' });
+  for (const cat of world.passport.categories()) {
+    const asked = cat.fields.filter((f) => requested.has(f.key)).length;
+    const head = el('div', { class: 'cathead' }, [
+      el('span', { class: 'catname', text: cat.label }),
+      el('span', { class: 'catkey', text: cat.id }),
+      el('span', { class: 'catcount', text: asked ? t('catAsked', { n: asked }) : t('catUntouched') }),
     ]);
-    if (requested.has(f.key)) {
-      card.setAttribute('role', 'button');
-      card.setAttribute('tabindex', '0');
-      const toggle = () => {
-        if (granted) return;
-        if (selected.has(f.key)) selected.delete(f.key); else selected.add(f.key);
-        updateCard(f.key);
-        drawMeter();
-      };
-      card.addEventListener('click', toggle);
-      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    const fields = el('div', { class: 'fields' });
+    for (const f of cat.fields) {
+      const card = el('div', { class: fieldClass(f.key), id: domId(f.key) }, [
+        el('div', { class: 'frow' }, [el('span', { class: 'dot ' + f.sensitivity }), el('span', { class: 'lab', text: f.label })]),
+        el('div', { class: 'k', text: f.key }),
+        el('div', { class: 'fstate', text: fieldStateText(f.key) }),
+      ]);
+      if (requested.has(f.key)) {
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        const toggle = () => {
+          if (granted) return;
+          if (selected.has(f.key)) selected.delete(f.key); else selected.add(f.key);
+          updateCard(f.key);
+          drawMeter();
+        };
+        card.addEventListener('click', toggle);
+        card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      }
+      cardEls.set(f.key, card);
+      fields.append(card);
     }
-    cardEls.set(f.key, card);
-    fields.append(card);
+    catalog.append(el('div', { class: asked ? 'catgroup touched' : 'catgroup' }, [head, fields]));
   }
-  passportPanel.append(fields, el('div', { class: 'mrz', text: mrz(world.passport) }));
+  passportPanel.append(catalog, el('div', { class: 'mrz', text: mrz(world.passport) }));
 
   const reqPanel = el('section', { class: 'panel pass', id: 'request' }, [el('h2', { text: t('requestHeading') })]);
   const requestedLabels = BENEFIT_REQUEST.fields.map((k) => world.passport.meta(k).label).join(', ');
@@ -109,18 +123,23 @@ export function mount(root, { world, i18n }) {
   );
   const meter = el('div', { class: 'meter' }, [el('span', { id: 'meterbar' })]);
   const meterLabel = el('p', { class: 'meterlabel', id: 'meterlabel' });
+  const catLabel = el('p', { class: 'meterlabel', id: 'catlabel' });
   const stamps = el('div', { class: 'stamps', id: 'stamps' });
 
   function drawMeter() {
     const total = world.passport.count();
-    const n = granted ? grantedFields.size : selected.size;
+    const catTotal = world.passport.categoryCount();
+    const live = granted ? grantedFields : selected;
+    const n = live.size;
+    const cats = new Set([...live].map((k) => world.passport.categoryOf(k))).size;
     root.querySelector('#meterbar').style.width = Math.round((n / total) * 100) + '%';
     root.querySelector('#meterlabel').textContent = t('minimization', { n, total });
+    root.querySelector('#catlabel').textContent = t('categoriesTouched', { cats, catTotal });
   }
 
   const grantBtn = el('button', { class: 'primary', id: 'grant', text: t('grant') });
   const denyBtn = el('button', { id: 'deny', text: t('deny') });
-  reqPanel.append(meter, meterLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
+  reqPanel.append(meter, meterLabel, catLabel, stamps, el('div', { class: 'controls' }, [grantBtn, denyBtn]));
 
   const feedPanel = el('section', { class: 'panel', id: 'receipts' }, [el('h2', { text: t('receiptsHeading') })]);
   const feed = el('div', { class: 'feed', id: 'feed' });
@@ -169,7 +188,7 @@ export function mount(root, { world, i18n }) {
     world.auth.revoke(token.id);
     revokeBtn.disabled = true;
     stamps.append(stampEl('revoked', t('stampRevoked')));
-    const probe = await world.broker.read(token, 'diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
+    const probe = await world.broker.read(token, 'health.diagnosis_code', BENEFIT_REQUEST.purpose, BENEFIT_REQUEST.agent);
     proveBox.classList.add('dead');
     proveBox.replaceChildren(
       el('strong', { text: t('proveHeading') }),

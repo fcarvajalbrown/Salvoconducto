@@ -13,20 +13,20 @@ async function setup() {
   const passport = createPassport();
   const ledger = createLedger();
   const broker = createBroker({ passport, auth, ledger, salt: 'testsalt' });
-  const token = await mint(SECRET, { id: 't', agent: 'BenefitBot', fields: ['diagnosis_code'], purpose: 'benefit_claim', expiresAt: Date.now() + 60_000 });
+  const token = await mint(SECRET, { id: 't', agent: 'BenefitBot', fields: ['health.diagnosis_code'], purpose: 'benefit_claim', expiresAt: Date.now() + 60_000 });
   auth.register(token);
   return { broker, token, ledger };
 }
 
 test('the agent still receives the real value', async () => {
   const { broker, token } = await setup();
-  const r = await broker.read(token, 'diagnosis_code', 'benefit_claim', 'BenefitBot');
+  const r = await broker.read(token, 'health.diagnosis_code', 'benefit_claim', 'BenefitBot');
   assert.equal(r.value, 'ICD-10 G35');
 });
 
 test('the ledger stores a salted hash, never the raw value', async () => {
   const { broker, token, ledger } = await setup();
-  await broker.read(token, 'diagnosis_code', 'benefit_claim', 'BenefitBot');
+  await broker.read(token, 'health.diagnosis_code', 'benefit_claim', 'BenefitBot');
   const e = ledger.all()[0];
   assert.equal(e.value, undefined);
   assert.equal(typeof e.valueHash, 'string');
@@ -37,7 +37,7 @@ test('the ledger stores a salted hash, never the raw value', async () => {
 
 test('denied reads log the reason, no value or hash', async () => {
   const { broker, token, ledger } = await setup();
-  await broker.read(token, 'payment_history', 'benefit_claim', 'HelperBot');
+  await broker.read(token, 'payment.history', 'benefit_claim', 'HelperBot');
   const e = ledger.all()[0];
   assert.equal(e.decision, 'DENY');
   assert.equal(e.reason, 'out-of-scope');
